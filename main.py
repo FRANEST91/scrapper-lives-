@@ -9,6 +9,14 @@ from typing import Dict, Optional, List
 from dotenv import load_dotenv
 from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.error import TelegramError, RetryAfter, TimedOut
+from publisher import insert_pending
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("verificador")
 
 # ----------------------------------------------------------------------
 # Cargar variables de entorno
