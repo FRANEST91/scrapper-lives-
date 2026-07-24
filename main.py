@@ -50,12 +50,12 @@ def init_db(db_path: str) -> sqlite3.Connection:
     conn.commit()
     return conn
 
-def is_published(conn: sqlite3.Connection, card_data: str) -> bool:
-    row = conn.execute("SELECT 1 FROM published WHERE card_data = ?", (card_data,)).fetchone()
+def is_published(conn: sqlite3.Connection, Card Data: str) -> bool:
+    row = conn.execute("SELECT 1 FROM published WHERE Card Data= ?", (Card Data,)).fetchone()
     return row is not None
 
 def mark_published(conn: sqlite3.Connection, card_data: str) -> None:
-    conn.execute("INSERT OR IGNORE INTO published (card_data) VALUES (?)", (card_data,))
+    conn.execute("INSERT OR IGNORE INTO published (Card Data) VALUES (?)", (card_data,))
     conn.commit()
 
 # ----------------------------------------------------------------------
