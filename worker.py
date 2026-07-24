@@ -1,15 +1,15 @@
 import os
-import sys
 import time
 import random
 from dotenv import load_dotenv
-from gen import cc_gen, cargar_bin_db, buscar_bin
+from gen import cargar_bin_db, buscar_bin
 from main import (
     cargar_proxies, cargar_tokens, guardar_combo, guardar_live,
     guardar_dead, check_card, format_proxy, log_to_file,
     crear_cuentas_para_check, MONTOS, TOKENS_FILE, USED_PHONES,
     flush_lives
 )
+import csv as csv_module
 import logging
 
 logging.basicConfig(
@@ -20,36 +20,51 @@ logger = logging.getLogger("worker")
 
 load_dotenv()
 
-BIN_PREFIX = os.getenv("BIN_PREFIX", "")
-CARD_MONTH = os.getenv("CARD_MONTH", "12")
-CARD_YEAR = os.getenv("CARD_YEAR", "2026")
-CARD_AMOUNT = int(os.getenv("CARD_AMOUNT", "10"))
 CHARGE_OPTION = os.getenv("CHARGE_OPTION", "1")
+CARD_AMOUNT = int(os.getenv("CARD_AMOUNT", "10"))
 SLEEP_BETWEEN_CYCLES = int(os.getenv("SLEEP_BETWEEN_CYCLES", "300"))
+BAS_BIN_FILE = os.getenv("BAS_BIN_FILE", "bas_bin.csv")
 
 CUENTAS_FIJAS = 50
 TARJETAS_POR_CUENTA_FIJO = 15
 ERRORES_ROTACION = 2
 
+def leer_series(csv_path: str):
+    if not os.path.exists(csv_path):
+        logger.error("Archivo %s no encontrado.", csv_path)
+        return []
+    series = []
+    try:
+        with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
+            reader = csv_module.DictReader(f)
+            if "Card Data" not in (reader.fieldnames or []):
+                logger.error("El archivo %s no tiene columna 'Card Data'.", csv_path)
+                return []
+            for row in reader:
+                card = row["Card Data"].strip()
+                if card:
+                    series.append(card)
+        logger.info("Leídas %d tarjetas desde %s", len(series), csv_path)
+    except Exception as e:
+        logger.exception("Error leyendo %s", csv_path)
+    return series
+
 def ejecutar_ciclo():
-    if not BIN_PREFIX or not BIN_PREFIX.isdigit() or len(BIN_PREFIX) < 8:
-        logger.error("BIN_PREFIX inválido o no configurado.")
-        return
     if CHARGE_OPTION not in MONTOS:
-        logger.error("CHARGE_OPTION inválido. Use 1,2,3 o 4.")
+        logger.error("CHARGE_OPTION inválido.")
         return
 
-    mes = CARD_MONTH.zfill(2)
-    ano = CARD_YEAR
-    if len(ano) == 2:
-        ano = "20" + ano
+    series = leer_series(BAS_BIN_FILE)
+    if not series:
+        logger.warning("No hay tarjetas en %s. Abortando ciclo.", BAS_BIN_FILE)
+        return
+
+    cantidad = min(CARD_AMOUNT, len(series))
+    ccs = random.sample(series, cantidad)
+    guardar_combo(ccs)
 
     monto, monto_label = MONTOS[CHARGE_OPTION]
     monto_nombre = f"${int(monto)} MXN CARGO" if monto == 1.0 else f"${int(monto)} MXN ABONO"
-
-    logger.info("Generando %d tarjetas con BIN %s, exp %s/%s", CARD_AMOUNT, BIN_PREFIX, mes, ano)
-    ccs = cc_gen(BIN_PREFIX, mes, ano, CARD_AMOUNT)
-    guardar_combo(ccs)
 
     proxies_list = cargar_proxies()
     bin_db = cargar_bin_db()
@@ -57,9 +72,7 @@ def ejecutar_ciclo():
     if os.path.exists(TOKENS_FILE):
         os.remove(TOKENS_FILE)
 
-    log_to_file(f"INICIANDO CHECK - {monto_nombre}")
-    log_to_file(f"Tarjetas: {len(ccs)} | Tarjetas/cuenta: {TARJETAS_POR_CUENTA_FIJO}")
-
+    log_to_file(f"INICIANDO CHECK - {monto_nombre} - {cantidad} tarjetas")
     USED_PHONES.clear()
     tokens_generados = crear_cuentas_para_check(CUENTAS_FIJAS, proxies_list)
     if tokens_generados == 0:
@@ -85,7 +98,7 @@ def ejecutar_ciclo():
     while i < len(ccs) and not api_no_disponible:
         if tarjetas_en_cuenta >= TARJETAS_POR_CUENTA_FIJO or token_actual is None:
             if token_idx >= len(tokens):
-                logger.warning("No hay mas tokens disponibles.")
+                logger.warning("No hay más tokens disponibles.")
                 break
             token_actual = tokens[token_idx]
             token_idx += 1
@@ -162,7 +175,7 @@ def main():
             ejecutar_ciclo()
         except Exception as e:
             logger.exception("Error en ciclo: %s", e)
-        logger.info("Esperando %d segundos para el próximo ciclo...", SLEEP_BETWEEN_CYCLES)
+        logger.info("Esperando %d segundos...", SLEEP_BETWEEN_CYCLES)
         time.sleep(SLEEP_BETWEEN_CYCLES)
 
 if __name__ == "__main__":
