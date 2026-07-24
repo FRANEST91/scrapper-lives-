@@ -1,7 +1,3 @@
-"""
-Módulo compartido para publicación de tarjetas en Telegram.
-Base de datos SQLite compartida con el verificador.
-"""
 import os
 import re
 import csv
@@ -10,7 +6,6 @@ import sqlite3
 import logging
 import html
 from typing import Dict, Optional, List
-
 import requests
 from dotenv import load_dotenv
 
@@ -31,8 +26,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger("publisher")
 
-# ----------------------------------------------------------------------
-# Base de datos compartida
 def _init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path)
     conn.execute("""
@@ -46,8 +39,6 @@ def _init_db(db_path: str = DB_PATH) -> sqlite3.Connection:
     conn.commit()
     return conn
 
-# ----------------------------------------------------------------------
-# Mapa de países a banderas
 COUNTRY_CODE_BY_NAME = {
     "ARGENTINA": "AR", "AUSTRALIA": "AU", "AUSTRIA": "AT", "BANGLADESH": "BD", "BELGIUM": "BE",
     "BRAZIL": "BR", "BULGARIA": "BG", "CANADA": "CA", "CHILE": "CL", "CHINA": "CN",
@@ -119,16 +110,13 @@ def _format_card_message(card_data: str, bin_database: Dict[str, Dict[str, str]]
         cvv = "xxx"
     else:
         return None
-
     if len(card_num) < 12 or len(month) != 2:
         return None
-
     bin_info = _get_bin_info(card_num, bin_database)
     censored_card_num = _mask_card_number(card_num)
     display_year = f"20{year}" if len(year) == 2 else year
     cvv_display = cvv[:3] if cvv != "xxx" else "No disponible"
     censored = f"{censored_card_num}|{month}|{display_year}|{cvv_display}"
-
     tipo = brand = nivel = banco = pais = bin_code_found = "Desconocido"
     if bin_info:
         tipo = bin_info.get("tipo", "Desconocido")
@@ -137,9 +125,7 @@ def _format_card_message(card_data: str, bin_database: Dict[str, Dict[str, str]]
         banco = bin_info.get("banco", "Desconocido")
         pais = bin_info.get("pais", "Desconocido")
         bin_code_found = bin_info.get("bin", "Desconocido")
-
     country_with_flag = f"{pais} {_country_flag(pais)}".strip()
-
     message = (
         f"<b>OLIMPO SCRAPPER</b>\n\n"
         f"<b>#<code>{html.escape(bin_code_found)}</code></b>\n"
@@ -170,7 +156,6 @@ def _send_card_sync(message: str) -> bool:
         payload["reply_markup"] = {
             "inline_keyboard": [[{"text": "⭐ OLIMPO", "url": BUTTON_URL}]]
         }
-
     for attempt in range(2):
         try:
             resp = requests.post(url, json=payload, timeout=15)
@@ -191,15 +176,7 @@ def _send_card_sync(message: str) -> bool:
                 return False
     return False
 
-# ----------------------------------------------------------------------
-# FUNCIONES PÚBLICAS
-
 def insert_pending(card_data: str, db_path: str = DB_PATH) -> bool:
-    """
-    Inserta una tarjeta en la tabla de pendientes por publicar.
-    La llama el verificador cuando encuentra una LIVE.
-    Retorna True si se insertó, False si ya existía.
-    """
     conn = _init_db(db_path)
     try:
         conn.execute(
@@ -215,30 +192,21 @@ def insert_pending(card_data: str, db_path: str = DB_PATH) -> bool:
         conn.close()
 
 def publish_pending_cards(db_path: str = DB_PATH, delay: float = 1.5) -> int:
-    """
-    Lee todas las tarjetas pendientes de la BD, las publica en Telegram
-    y las marca como publicadas.
-    """
     conn = _init_db(db_path)
-    
     rows = conn.execute(
         "SELECT id, card_data FROM pending_publish WHERE published = 0 ORDER BY id"
     ).fetchall()
-    
     if not rows:
         logger.info("No hay tarjetas pendientes por publicar.")
         conn.close()
         return 0
-    
     bin_db = _load_bin_database(CSV_BIN_FILE)
     if not bin_db:
         logger.error("No se pudo cargar la base de BINs. Abortando.")
         conn.close()
         return 0
-    
     logger.info("Publicando %d tarjetas pendientes...", len(rows))
     sent = 0
-    
     for idx, (row_id, card_data) in enumerate(rows, 1):
         msg = _format_card_message(card_data, bin_db)
         if not msg:
@@ -246,7 +214,6 @@ def publish_pending_cards(db_path: str = DB_PATH, delay: float = 1.5) -> int:
             conn.execute("UPDATE pending_publish SET published = 1 WHERE id = ?", (row_id,))
             conn.commit()
             continue
-        
         success = _send_card_sync(msg)
         if success:
             sent += 1
@@ -255,16 +222,13 @@ def publish_pending_cards(db_path: str = DB_PATH, delay: float = 1.5) -> int:
             logger.info("Publicada (%d/%d): %s", idx, len(rows), card_data)
         else:
             logger.error("Fallo al publicar (%d/%d): %s", idx, len(rows), card_data)
-        
         if idx < len(rows):
             time.sleep(delay)
-    
     conn.close()
     logger.info("Publicación completada: %d/%d enviadas.", sent, len(rows))
     return sent
 
 def get_pending_count(db_path: str = DB_PATH) -> int:
-    """Retorna cuántas tarjetas pendientes sin publicar hay."""
     conn = _init_db(db_path)
     count = conn.execute(
         "SELECT COUNT(*) FROM pending_publish WHERE published = 0"
