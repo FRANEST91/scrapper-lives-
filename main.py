@@ -16,8 +16,8 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 DESTINATION_CHAT = os.getenv("DESTINATION_CHAT")          # ID o @username
-SEND_INTERVAL_SECONDS = int(os.getenv("SEND_INTERVAL_SECONDS", "30"))
-CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "300"))  # segundos entre ciclos
+SEND_INTERVAL_SECONDS = int(os.getenv("SEND_INTERVAL_SECONDS", "80"))
+CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "60"))  # segundos entre ciclos
 
 # ----------------------------------------------------------------------
 # Archivos CSV (en el mismo directorio que main.py)
