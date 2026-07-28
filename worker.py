@@ -67,7 +67,7 @@ def ejecutar_ciclo():
     if len(ano) == 2:
         ano = "20" + ano
 
-    bin_prefix = extraer_prefijo(cc_plantilla)
+    bin_prefix = extraer_prefijo(cc_plantilla)[:12]
     logger.info("Prefijo extraído: %s (longitud %d)", bin_prefix, len(bin_prefix))
     logger.info("Generando %d tarjetas con prefijo %s, exp %s/%s", CARD_AMOUNT, bin_prefix, mes, ano)
 
