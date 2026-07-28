@@ -241,7 +241,7 @@ def flush_lives(monto_nombre="$1 MXN CARGO"):
     if pendientes == 0:
         logger.info("No hay tarjetas pendientes.")
         return 0
-    logger.info("Publicando %d tarjetas...", pendientes)
+    logger.info("Publicando %d tarjetas con monto %s...", pendientes, monto_nombre)
     enviadas = publish_pending_cards(monto_nombre=monto_nombre)
     logger.info("Publicadas %d/%d", enviadas, pendientes)
     return enviadas
