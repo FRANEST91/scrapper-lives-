@@ -235,13 +235,13 @@ def check_card(cc, mes, ano, cvv, monto, monto_nombre, token, proxy_url, bin_inf
     except Exception as e:
         return "error", display, str(e)[:80]
 
-def flush_lives():
+def flush_lives(monto_nombre="$1 MXN CARGO"):
     from publisher import publish_pending_cards, get_pending_count
     pendientes = get_pending_count()
     if pendientes == 0:
         logger.info("No hay tarjetas pendientes.")
         return 0
     logger.info("Publicando %d tarjetas...", pendientes)
-    enviadas = publish_pending_cards()
+    enviadas = publish_pending_cards(monto_nombre=monto_nombre)
     logger.info("Publicadas %d/%d", enviadas, pendientes)
     return enviadas
