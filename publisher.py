@@ -113,7 +113,7 @@ def _format_card_message(card_data: str, bin_database: Dict[str, Dict[str, str]]
     censored_card_num = _mask_card_number(card_num)
     display_year = f"20{year}" if len(year) == 2 else year
     cvv_display = cvv[:3] if cvv != "xxx" else "No disponible"
-    censored = f"{censored_card_num}|{month}|{display_year}|{cvv_display}"
+    censored = f"{censored_card_num}|{month}|{display_year}"
     tipo = brand = nivel = banco = pais = bin_code_found = "Desconocido"
     if bin_info:
         tipo = bin_info.get("tipo", "Desconocido")
@@ -130,7 +130,7 @@ def _format_card_message(card_data: str, bin_database: Dict[str, Dict[str, str]]
         f"<b></b>\n"
         f"<b>✅ LIVE CHARGED {monto_nombre}</b>\n"
         f"<b></b>\n"
-        f"<b>CC:</b> <code>{html.escape(card_num)}|{month}|{display_year}</code>\n\n"
+        f"<b>CC:</b><code>{html.escape(card_num)}|{cvv_display}</code>\n"
         f"<b>#<code>{html.escape(bin_code_found)}</code></b>\n"
         f"<b>━━━━━━━━</b>\n"
         f"<b>Serie= <code>{html.escape(censored)}</code></b>\n"
