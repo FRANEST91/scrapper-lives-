@@ -87,7 +87,7 @@ def cargar_proxies():
         return []
 
 def registrar_cuenta(proxy_url, intentos=3):
-    for _ in range(intentos):
+    for intento in range(1, intentos + 1):
         scraper = cloudscraper.create_scraper(
             browser={'browser': 'chrome', 'platform': 'ios', 'mobile': True},
             delay=2
@@ -96,7 +96,8 @@ def registrar_cuenta(proxy_url, intentos=3):
             scraper.proxies = {"http": proxy_url, "https": proxy_url}
         headers = {
             "user-agent": "Dart/2.18 (dart:io)",
-            "content-type": "application/json; charset=utf-8"
+            "content-type": "application/json; charset=utf-8",
+            "accept": "application/json"
         }
         nombre = random.choice(NOMBRES)
         apellido = random.choice(APELLIDOS)
@@ -111,26 +112,58 @@ def registrar_cuenta(proxy_url, intentos=3):
             "Contrasena": password,
             "ConfirmarContrasena": password,
         }
+        logger.info("Intento %d: registrando cuenta. Proxy=%s Payload=%s", intento, proxy_url, datos)
         try:
             r = scraper.post(REGISTER_URL, json=datos, headers=headers, timeout=15)
-            if r.status_code == 403 and "stopped" in r.text:
+            # Loguear siempre el cuerpo de la respuesta para diagnosticar 400s
+            body_snippet = (r.text[:1000] + '...') if r.text and len(r.text) > 1000 else r.text
+            logger.info("Registro response: %s\n%s", r.status_code, body_snippet)
+            # detecta API apagada
+            if r.status_code == 403 and "stopped" in (r.text or "").lower():
                 logger.error("API apagada")
                 return None
             if r.status_code not in (200, 201):
-                logger.warning("Registro fallido: %d", r.status_code)
+                # si es 400/422, intenta variante con claves en minúscula y loguea detalle JSON si existe
+                try:
+                    parsed = r.json()
+                    logger.warning("Detalle error JSON registro: %s", parsed)
+                except Exception:
+                    logger.warning("Respuesta no JSON: %s", r.text[:500])
+                # Si fue 400, intentar con keys en minúscula una vez
+                if r.status_code == 400:
+                    alt = {k.lower(): v for k, v in datos.items()}
+                    logger.info("Reintentando registro con claves en minúscula: %s", alt)
+                    r2 = scraper.post(REGISTER_URL, json=alt, headers=headers, timeout=15)
+                    logger.info("Segundo intento status %s body: %s", r2.status_code, r2.text[:500])
+                    if r2.status_code in (200, 201):
+                        login_data = {"CorreoElectronico": alt.get("correoelectronico", email), "Contrasena": password}
+                        r_login = scraper.post(LOGIN_URL, json=login_data, headers=headers, timeout=15)
+                        if r_login.status_code in (200, 201):
+                            data = r_login.json()
+                            token = data.get("token")
+                            if token:
+                                logger.info("Cuenta creada (segunda variante): %s", alt.get("correoelectronico"))
+                                return token
                 time.sleep(2)
                 continue
+            # si registro OK, intentar login
             login_data = {"CorreoElectronico": email, "Contrasena": password}
             r2 = scraper.post(LOGIN_URL, json=login_data, headers=headers, timeout=15)
+            logger.info("Login status: %s body: %s", r2.status_code, (r2.text[:500] if r2.text else ""))
             if r2.status_code in (200, 201):
-                data = r2.json()
+                try:
+                    data = r2.json()
+                except Exception:
+                    logger.error("Login devolvió no-JSON")
+                    time.sleep(1)
+                    continue
                 token = data.get("token")
                 if token:
                     logger.info("Cuenta creada: %s", email)
                     return token
             time.sleep(1)
         except Exception as e:
-            logger.error("Error registro: %s", e)
+            logger.exception("Error registro: %s", e)
             time.sleep(2)
     return None
 
