@@ -34,10 +34,10 @@ APELLIDOS = [
 DOMINIOS = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "proton.me"]
 
 MONTOS = {
-    "1": (1.0, "$1 MXN CARGO"),
-    "2": (20.0, "$20 MXN ABONO"),
-    "3": (50.0, "$50 MXN ABONO"),
-    "4": (100.0, "$100 MXN ABONO")
+    "1": (1.0, "$1 MXN"),
+    "2": (20.0, "$20 MXN"),
+    "3": (50.0, "$50 MXN"),
+    "4": (100.0, "$100 MXN")
 }
 
 USED_PHONES = set()
