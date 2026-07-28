@@ -46,7 +46,7 @@ def random_string(n=10):
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
 
 def random_phone():
-    lada = random.choice(["33","55","81","449","222","477","686","664","612","667"])
+    lada = random.choice(["332","555","810","449","222","477","686","664","612","667"])
     for _ in range(100):
         phone = lada + "".join(random.choices("0123456789", k=7))
         if phone not in USED_PHONES:
