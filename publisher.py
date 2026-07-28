@@ -130,7 +130,7 @@ def _format_card_message(card_data: str, bin_database: Dict[str, Dict[str, str]]
         f"<b></b>\n"
         f"<b>✅ LIVE CHARGED {monto_nombre}</b>\n"
         f"<b></b>\n"
-        f"<b>CC:</b><code>{html.escape(card_num)}|{cvv_display}</code>\n"
+        f"<b>CC:</b><code>{html.escape(card_num)}|{month}|{display_year}{cvv_display}</code>\n"
         f"<b>#<code>{html.escape(bin_code_found)}</code></b>\n"
         f"<b>━━━━━━━━</b>\n"
         f"<b>Serie= <code>{html.escape(censored)}</code></b>\n"
