@@ -3,7 +3,7 @@ import time
 import random
 import csv as csv_module
 from dotenv import load_dotenv
-from gen import cargar_bin_db, buscar_bin
+from gen import cc_gen, cargar_bin_db, buscar_bin
 from main import (
     cargar_proxies, registrar_cuenta, check_card,
     format_proxy, MONTOS, flush_lives
@@ -29,11 +29,20 @@ def leer_series(csv_path):
     with open(csv_path, "r", encoding="utf-8-sig", newline="") as f:
         reader = csv_module.DictReader(f)
         for row in reader:
-            card = row["Card Data"].strip()
-            if card:
+            card = row.get("Card Data", "").strip()
+            if card and "|" in card:
                 series.append(card)
-    logger.info("Leídas %d tarjetas desde %s", len(series), csv_path)
+    logger.info("Leídas %d tarjetas plantilla desde %s", len(series), csv_path)
     return series
+
+def extraer_prefijo(cc):
+    prefijo = ""
+    for c in cc:
+        if c.isdigit():
+            prefijo += c
+        else:
+            break
+    return prefijo
 
 def ejecutar_ciclo():
     if CHARGE_OPTION not in MONTOS:
@@ -44,9 +53,26 @@ def ejecutar_ciclo():
     if not series:
         return
 
-    cantidad = min(CARD_AMOUNT, len(series))
-    combos = random.sample(series, cantidad)
-    logger.info("Muestra de %d tarjetas seleccionada.", len(combos))
+    plantilla = random.choice(series)
+    logger.info("Plantilla seleccionada: %s", plantilla)
+
+    parts = plantilla.split("|")
+    if len(parts) < 3:
+        logger.error("Plantilla con formato incorrecto: %s", plantilla)
+        return
+
+    cc_plantilla = parts[0]
+    mes = parts[1].zfill(2)
+    ano = parts[2]
+    if len(ano) == 2:
+        ano = "20" + ano
+
+    bin_prefix = extraer_prefijo(cc_plantilla)
+    logger.info("Prefijo extraído: %s (longitud %d)", bin_prefix, len(bin_prefix))
+    logger.info("Generando %d tarjetas con prefijo %s, exp %s/%s", CARD_AMOUNT, bin_prefix, mes, ano)
+
+    combos = cc_gen(bin_prefix, mes, ano, CARD_AMOUNT)
+    logger.info("Se generaron %d tarjetas completas.", len(combos))
 
     monto, monto_nombre = MONTOS[CHARGE_OPTION]
     proxies_list = cargar_proxies()
@@ -57,16 +83,16 @@ def ejecutar_ciclo():
     if not token:
         logger.error("No se pudo generar la cuenta. Abortando ciclo.")
         return
-    logger.info("Cuenta creada y token obtenido.")
+    logger.info("Cuenta creada y token obtenido. Iniciando verificación...")
 
     lives = 0
     for i, combo in enumerate(combos):
         if not combo or "|" not in combo:
             continue
-        parts = combo.strip().split("|")
-        if len(parts) < 4:
+        cparts = combo.strip().split("|")
+        if len(cparts) < 4:
             continue
-        cc, mm, yy, cvv = parts[0], parts[1], parts[2], parts[3]
+        cc, mm, yy, cvv = cparts[0], cparts[1], cparts[2], cparts[3]
         bin_info = buscar_bin(cc, bin_db)
         logger.info("Verificando %d/%d: %s...%s", i+1, len(combos), cc[:6], cc[-4:])
 
