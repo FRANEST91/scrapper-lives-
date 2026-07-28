@@ -119,7 +119,7 @@ def ejecutar_ciclo():
 
     logger.info("Ciclo completado. Lives encontradas: %d", lives)
     if lives > 0:
-        flush_lives()
+    flush_lives(monto_nombre)
 
 def main():
     logger.info("Iniciando worker automático...")
